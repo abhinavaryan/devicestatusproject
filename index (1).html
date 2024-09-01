@@ -1,0 +1,38 @@
+<!-- Front-end: HTML with Socket.IO -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Status Monitor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Device Status Monitor</h1>
+    <div id="deviceList"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('updateDevices', (devices) => {
+            const deviceList = document.getElementById('deviceList');
+            deviceList.innerHTML = '';
+            devices.forEach(device => {
+                const deviceElement = document.createElement('div');
+                deviceElement.innerText = `${device.name}: ${device.status}`;
+                deviceList.appendChild(deviceElement);
+            });
+        });
+
+        socket.on('statusChanged', (device) => {
+            const deviceList = document.getElementById('deviceList');
+            const deviceElements = deviceList.children;
+            for (let i = 0; i < deviceElements.length; i++) {
+                if (deviceElements[i].innerText.startsWith(device.name)) {
+                    deviceElements[i].innerText = `${device.name}: ${device.status}`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
