@@ -1,41 +1,47 @@
-// Server-side: Node.js with Express and Socket.IO
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const WebSocket = require('ws');
 const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const wss = new WebSocket.Server({ server });
 
 mongoose.connect('mongodb://localhost/deviceStatus', { useNewUrlParser: true, useUnifiedTopology: true });
 
 const deviceSchema = new mongoose.Schema({
     name: String,
-    status: String
+    status: String,
 });
 
 const Device = mongoose.model('Device', deviceSchema);
 
-io.on('connection', (socket) => {
-    console.log('New client connected');
+wss.on('connection', (ws) => {
+    console.log('Client connected');
 
-    Device.find().then(devices => {
-        socket.emit('updateDevices', devices);
+    ws.on('message', (message) => {
+        console.log(`Received: ${message}`);
     });
 
-    socket.on('updateStatus', (device) => {
-        Device.findByIdAndUpdate(device.id, { status: device.status }, { new: true })
-            .then(updatedDevice => {
-                io.emit('statusChanged', updatedDevice);
-            });
-    });
+    const sendStatusUpdate = async () => {
+        const devices = await Device.find();
+        ws.send(JSON.stringify(devices));
+    };
 
-    socket.on('disconnect', () => {
+    const interval = setInterval(sendStatusUpdate, 5000);
+
+    ws.on('close', () => {
+        clearInterval(interval);
         console.log('Client disconnected');
     });
 });
 
-server.listen(4000, () => {
-    console.log('Server is running on port 4000');
+app.post('/updateDevice', async (req, res) => {
+    const { name, status } = req.body;
+    await Device.updateOne({ name }, { status }, { upsert: true });
+    res.sendStatus(200);
+});
+
+server.listen(3000, () => {
+    console.log('Server is listening on port 3000');
 });
